@@ -1,0 +1,75 @@
+{
+  "export_version": "1",
+  "exported_at": "2026-06-27T12:00:00Z",
+  "server": {
+    "name": "ms-dhcp01.corp.example.com",
+    "version": "10.0",
+    "ad_authorized": true
+  },
+  "server_options": [
+    { "option_id": 6, "name": "DNS Servers", "type": "IPv4Address", "value": ["10.0.0.10", "10.0.0.11"] },
+    { "option_id": 15, "name": "DNS Domain Name", "type": "String", "value": ["corp.example.com"] }
+  ],
+  "scopes": [
+    {
+      "scope_id": "10.0.10.0",
+      "name": "VLAN10-Workstations",
+      "description": "Floor 1 workstations",
+      "subnet_mask": "255.255.255.0",
+      "start_range": "10.0.10.10",
+      "end_range": "10.0.10.250",
+      "state": "Active",
+      "lease_duration_seconds": 691200,
+      "options": [
+        { "option_id": 3, "name": "Router", "type": "IPv4Address", "value": ["10.0.10.1"] }
+      ],
+      "exclusions": [
+        { "start_range": "10.0.10.10", "end_range": "10.0.10.19" }
+      ],
+      "reservations": [
+        {
+          "ip_address": "10.0.10.5",
+          "client_id": "00-11-22-33-44-55",
+          "name": "printer-f1",
+          "description": "Front desk printer",
+          "type": "Both",
+          "options": [
+            { "option_id": 3, "name": "Router", "type": "IPv4Address", "value": ["10.0.10.1"] }
+          ]
+        }
+      ],
+      "leases": [
+        {
+          "ip_address": "10.0.10.50",
+          "client_id": "aa-bb-cc-dd-ee-01",
+          "hostname": "laptop-42.corp.example.com",
+          "address_state": "Active",
+          "lease_expiry": "2026-06-29T08:00:00Z"
+        },
+        {
+          "ip_address": "10.0.10.51",
+          "client_id": "aa-bb-cc-dd-ee-02",
+          "hostname": "phone-7.corp.example.com",
+          "address_state": "Active",
+          "lease_expiry": "2026-06-28T20:00:00Z"
+        }
+      ]
+    },
+    {
+      "scope_id": "10.0.20.0",
+      "name": "VLAN20-Servers",
+      "description": "Server VLAN",
+      "subnet_mask": "255.255.255.0",
+      "start_range": "10.0.20.10",
+      "end_range": "10.0.20.100",
+      "state": "Active",
+      "lease_duration_seconds": 86400,
+      "options": [
+        { "option_id": 3, "name": "Router", "type": "IPv4Address", "value": ["10.0.20.1"] }
+      ],
+      "exclusions": [],
+      "reservations": [],
+      "leases": []
+    }
+  ]
+}
