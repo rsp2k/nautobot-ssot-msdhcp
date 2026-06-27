@@ -59,13 +59,16 @@ def _get_or_create_prefix(cidr: str):
 def _get_or_create_ipaddress(ip: str):
     from nautobot.ipam.models import IPAddress
 
+    host = ip.split("/")[0]
     address = ip if "/" in ip else f"{ip}/32"
-    obj, _ = IPAddress.objects.get_or_create(
-        address=address,
-        namespace=_global_namespace(),
-        defaults={"status": _active_status()},
-    )
-    return obj
+    # `namespace` isn't a queryable field on IPAddress (it lives on parent), so we
+    # can't use get_or_create(namespace=...). Look up by host within the Global
+    # namespace; create with the namespace kwarg (which the create path resolves
+    # to a parent prefix).
+    existing = IPAddress.objects.filter(host=host, parent__namespace=_global_namespace()).first()
+    if existing:
+        return existing
+    return IPAddress.objects.create(address=address, namespace=_global_namespace(), status=_active_status())
 
 
 def _resolve_server(name: str):
@@ -75,9 +78,13 @@ def _resolve_server(name: str):
 
 
 def _resolve_scope(server_name: str, cidr: str):
+    from nautobot.ipam.models import Prefix
     from nautobot_dhcp_models.models import DHCPScope
 
-    return DHCPScope.objects.get(server__name=server_name, prefix__prefix=cidr)
+    # `prefix` on Prefix is a derived property, not a join-traversable field, so we
+    # resolve the Prefix object by its direct `prefix=` lookup, then filter by FK.
+    prefix = Prefix.objects.get(prefix=cidr, namespace=_global_namespace())
+    return DHCPScope.objects.get(server__name=server_name, prefix=prefix)
 
 
 def _parse_dt(value: str):
@@ -137,7 +144,7 @@ class NautobotDhcpServer(DhcpServer):
         from nautobot_dhcp_models.models import DHCPServer
 
         DHCPServer.objects.filter(name=self.name).update(
-            **{k: v for k, v in attrs.items() if k in ("vendor", "ad_authorized", "version")}
+            **{k: v for k, v in attrs.items() if k in ("vendor", "ad_authorized")}
         )
         return super().update(attrs)
 
@@ -272,7 +279,7 @@ class NautobotDhcpReservation(DhcpReservation):
 
         return DHCPReservation.objects.get(
             scope=_resolve_scope(self.server_name, self.prefix),
-            ip_address=_get_or_create_ipaddress(self.ip_address),
+            ip_address__host=self.ip_address,
         )
 
     def update(self, attrs: dict[str, Any]):
@@ -349,7 +356,7 @@ class NautobotDhcpOption(DhcpOption):
             from nautobot_dhcp_models.models import DHCPReservation
 
             scope = _resolve_scope(server_name, scope_prefix)
-            reservation = DHCPReservation.objects.get(scope=scope, ip_address=_get_or_create_ipaddress(reservation_ip))
+            reservation = DHCPReservation.objects.get(scope=scope, ip_address__host=reservation_ip)
             return {"reservation": reservation}
         if scope_prefix:
             return {"scope": _resolve_scope(server_name, scope_prefix)}

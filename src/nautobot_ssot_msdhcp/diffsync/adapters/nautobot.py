@@ -65,7 +65,6 @@ class NautobotAdapter(Adapter):
                 self.dhcpserver(
                     name=server.name,
                     vendor=server.vendor,
-                    version="",
                     ad_authorized=server.ad_authorized,
                 )
             )

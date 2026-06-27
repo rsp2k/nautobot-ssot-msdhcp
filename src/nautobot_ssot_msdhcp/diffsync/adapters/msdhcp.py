@@ -69,7 +69,6 @@ class MSDHCPAdapter(Adapter):
             self.dhcpserver(
                 name=server_name,
                 vendor="microsoft",
-                version=server.get("version") or "",
                 ad_authorized=server.get("ad_authorized"),
             )
         )

@@ -16,11 +16,10 @@ class DhcpServer(DiffSyncModel):
 
     _modelname = "dhcpserver"
     _identifiers = ("name",)
-    _attributes = ("vendor", "version", "ad_authorized")
+    _attributes = ("vendor", "ad_authorized")
 
     name: str
     vendor: str = "microsoft"
-    version: str = ""
     ad_authorized: bool | None = None
 
 
