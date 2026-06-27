@@ -19,7 +19,7 @@ classifiers = [
 dependencies = [
     "nautobot>=3.0,<4",
     "nautobot-ssot>=4.2,<5",
-    "nautobot-dhcp-models",
+    "nautobot-dhcp-models[ssot]",
     "diffsync>=2.0,<3",
 ]
 

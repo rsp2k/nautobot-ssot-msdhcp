@@ -1,12 +1,19 @@
-"""Pure helpers for translating Microsoft DHCP export values to model values.
+"""Microsoft-specific value helpers for the MS DHCP source adapter.
 
-No Django/Nautobot imports here so these are unit-testable on plain pytest.
+Vendor-neutral helpers (canonical_dt, normalize_mac, join_option_value) are
+re-exported from the shared ``nautobot_dhcp_models.ssot.helpers`` so the source
+adapter has one import surface.
 """
 
 from __future__ import annotations
 
-import datetime
 import ipaddress
+
+from nautobot_dhcp_models.ssot.helpers import (  # noqa: F401 -- re-exported for the adapter
+    canonical_dt,
+    join_option_value,
+    normalize_mac,
+)
 
 
 def prefix_from_scope(scope_id: str, subnet_mask: str) -> str:
@@ -17,50 +24,6 @@ def prefix_from_scope(scope_id: str, subnet_mask: str) -> str:
     """
     net = ipaddress.ip_network(f"{scope_id}/{subnet_mask}", strict=False)
     return str(net)
-
-
-def normalize_mac(client_id: str) -> str:
-    """Normalize a Windows DHCP ClientId to colon-separated lowercase MAC.
-
-    Windows reports MACs as ``00-11-22-33-44-55``. Non-MAC client identifiers
-    (length != 12 hex chars) are returned lowercased but otherwise untouched.
-
-    >>> normalize_mac("00-11-22-33-44-55")
-    '00:11:22:33:44:55'
-    """
-    hexstr = (client_id or "").replace("-", "").replace(":", "").replace(".", "").strip().lower()
-    if len(hexstr) != 12 or any(c not in "0123456789abcdef" for c in hexstr):
-        return (client_id or "").strip().lower()
-    return ":".join(hexstr[i : i + 2] for i in range(0, 12, 2))
-
-
-def canonical_dt(value) -> str:
-    """Canonicalize a timestamp (ISO string or datetime) to UTC isoformat.
-
-    Both adapters run values through this so the same instant compares equal
-    regardless of source format (``...Z`` from the export vs ``...+00:00`` from
-    the ORM). Microseconds are dropped for stability. Returns "" for empty input.
-    """
-    if not value:
-        return ""
-    if isinstance(value, str):
-        text = value.replace("Z", "+00:00")
-        try:
-            dt = datetime.datetime.fromisoformat(text)
-        except ValueError:
-            return ""
-    else:
-        dt = value
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=datetime.timezone.utc)
-    return dt.astimezone(datetime.timezone.utc).replace(microsecond=0).isoformat()
-
-
-def join_option_value(value) -> str:
-    """Join an option value (list or scalar) into a comma-separated string."""
-    if isinstance(value, (list, tuple)):
-        return ",".join(str(v) for v in value)
-    return "" if value is None else str(value)
 
 
 # Microsoft option Type -> DHCPOptionDataTypeChoices value.
@@ -95,9 +58,6 @@ RESERVATION_TYPE_MAP = {
 }
 
 
-# Microsoft lease AddressState -> DHCPLeaseStateChoices value. MS has several
-# *active* sub-states (ActiveReservation, etc.); anything starting "active" maps
-# to active. Declined/Expired map directly.
 def lease_state_from_ms(address_state: str) -> str:
     """Map a Windows AddressState string to a DHCPLeaseStateChoices value."""
     s = (address_state or "").strip().lower()

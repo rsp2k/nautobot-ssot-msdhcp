@@ -9,8 +9,7 @@ so the diff against the Nautobot side is apples-to-apples.
 from __future__ import annotations
 
 from diffsync import Adapter
-
-from nautobot_ssot_msdhcp.diffsync.models.base import (
+from nautobot_dhcp_models.ssot.base import (
     DhcpExclusion,
     DhcpLease,
     DhcpOption,
@@ -19,6 +18,7 @@ from nautobot_ssot_msdhcp.diffsync.models.base import (
     DhcpScope,
     DhcpServer,
 )
+
 from nautobot_ssot_msdhcp.utils.dhcp import (
     RESERVATION_TYPE_MAP,
     SCOPE_STATE_MAP,

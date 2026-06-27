@@ -7,8 +7,9 @@ amend/save logic does NOT cause perpetual drift).
 
 import json
 
+from nautobot_dhcp_models.ssot.adapter import NautobotAdapter
+
 from nautobot_ssot_msdhcp.diffsync.adapters.msdhcp import MSDHCPAdapter
-from nautobot_ssot_msdhcp.diffsync.adapters.nautobot import NautobotAdapter
 
 EXPORT_PATH = "/opt/plugin/tests/fixtures/ms_dhcp_export.json"
 

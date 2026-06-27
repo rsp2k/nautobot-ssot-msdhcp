@@ -6,10 +6,10 @@ import json
 
 from diffsync.enum import DiffSyncFlags
 from nautobot.apps.jobs import BooleanVar, FileVar, register_jobs
+from nautobot_dhcp_models.ssot.adapter import NautobotAdapter
 from nautobot_ssot.jobs.base import DataSource
 
 from nautobot_ssot_msdhcp.diffsync.adapters.msdhcp import MSDHCPAdapter
-from nautobot_ssot_msdhcp.diffsync.adapters.nautobot import NautobotAdapter
 
 name = "Microsoft DHCP SSoT"  # noqa: F841 -- grouping label in the Jobs UI
 
