@@ -72,9 +72,34 @@ try {
     }
 } catch {}
 
+# Superscopes (scope groupings on one link) -> DHCPSharedNetwork. Entries with an
+# empty SuperscopeName are scopes not in any superscope; skip them.
+$superscopes = @()
+try {
+    foreach ($ss in (Get-DhcpServerv4Superscope -ComputerName $ComputerName -ErrorAction Stop)) {
+        if ([string]$ss.SuperscopeName) {
+            $superscopes += [PSCustomObject]@{
+                name      = [string]$ss.SuperscopeName
+                scope_ids = @($ss.ScopeId | ForEach-Object { $_.IPAddressToString })
+            }
+        }
+    }
+} catch {}
+
 $scopes = @()
 foreach ($scope in (Get-DhcpServerv4Scope -ComputerName $ComputerName)) {
     $sid = $scope.ScopeId.IPAddressToString
+
+    # Per-scope DNS dynamic-update settings -> ddns_* fields.
+    $dnsUpdates = $null
+    $dnsOlderClients = $null
+    try {
+        $dns = Get-DhcpServerv4DnsSetting -ComputerName $ComputerName -ScopeId $sid -ErrorAction Stop
+        if ($dns) {
+            $dnsUpdates = [string]$dns.DynamicUpdates
+            $dnsOlderClients = [bool]$dns.UpdateDnsRRForOlderClients
+        }
+    } catch {}
 
     $exclusions = @(Get-DhcpServerv4ExclusionRange -ComputerName $ComputerName -ScopeId $sid -ErrorAction SilentlyContinue |
         ForEach-Object { [PSCustomObject]@{ start_range = $_.StartRange.IPAddressToString; end_range = $_.EndRange.IPAddressToString } })
@@ -123,6 +148,8 @@ foreach ($scope in (Get-DhcpServerv4Scope -ComputerName $ComputerName)) {
         end_range              = $scope.EndRange.IPAddressToString
         state                  = [string]$scope.State
         lease_duration_seconds = $duration
+        dynamic_updates        = $dnsUpdates
+        update_older_clients   = $dnsOlderClients
         options                = $scopeOptions
         exclusions             = $exclusions
         reservations           = $reservations
@@ -131,7 +158,7 @@ foreach ($scope in (Get-DhcpServerv4Scope -ComputerName $ComputerName)) {
 }
 
 $export = [PSCustomObject]@{
-    export_version = "2"
+    export_version = "3"
     exported_at    = (Get-Date).ToUniversalTime().ToString("o")
     server         = [PSCustomObject]@{
         name          = $serverName
@@ -140,6 +167,7 @@ $export = [PSCustomObject]@{
     }
     server_options = $serverOptions
     failover       = $failover
+    superscopes    = $superscopes
     scopes         = $scopes
 }
 

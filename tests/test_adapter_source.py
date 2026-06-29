@@ -76,6 +76,28 @@ def test_scopes_loaded_with_cidr_and_state(adapter):
     assert scopes["10.0.10.0/24"].name == "VLAN10-Workstations"
 
 
+def test_superscope_projected_to_shared_network(adapter):
+    """A superscope becomes a shared network; its member scopes link to it by name."""
+    sn = adapter.get("dhcpsharednetwork", {"server_name": "ms-dhcp01.corp.example.com", "name": "campus-a"})
+    assert sn.name == "campus-a"
+    # MS superscopes carry no operational fields -- just the grouping.
+    assert sn.relay_addresses == [] and sn.interface == ""
+    scopes = {s.prefix: s for s in adapter.get_all("dhcpscope")}
+    assert scopes["10.0.10.0/24"].shared_network == "campus-a"
+    assert scopes["10.0.20.0/24"].shared_network == "campus-a"
+
+
+def test_scope_ddns_mapped_from_ms(adapter):
+    """MS DynamicUpdates=Always + UpdateDnsRRForOlderClients map to the ddns_* fields."""
+    s = adapter.get("dhcpscope", {"server_name": "ms-dhcp01.corp.example.com", "prefix": "10.0.10.0/24"})
+    assert s.ddns_send_updates is True
+    assert s.ddns_override_client_update is True  # "Always" = override client request
+    assert s.ddns_override_no_update is True      # UpdateDnsRRForOlderClients
+    # A scope with no DNS settings in the export keeps the neutral defaults.
+    s20 = adapter.get("dhcpscope", {"server_name": "ms-dhcp01.corp.example.com", "prefix": "10.0.20.0/24"})
+    assert s20.ddns_send_updates is None
+
+
 def test_pool_and_exclusion(adapter):
     pools = adapter.get_all("dhcppool")
     assert len(pools) == 2  # one per scope with a range

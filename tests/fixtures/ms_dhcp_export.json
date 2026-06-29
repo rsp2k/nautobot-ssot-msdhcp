@@ -1,5 +1,5 @@
 {
-  "export_version": "2",
+  "export_version": "3",
   "exported_at": "2026-06-27T12:00:00Z",
   "server": {
     "name": "ms-dhcp01.corp.example.com",
@@ -39,6 +39,15 @@
       ]
     }
   ],
+  "superscopes": [
+    {
+      "name": "campus-a",
+      "scope_ids": [
+        "10.0.10.0",
+        "10.0.20.0"
+      ]
+    }
+  ],
   "scopes": [
     {
       "scope_id": "10.0.10.0",
@@ -49,6 +58,8 @@
       "end_range": "10.0.10.250",
       "state": "Active",
       "lease_duration_seconds": 691200,
+      "dynamic_updates": "Always",
+      "update_older_clients": true,
       "options": [
         {
           "option_id": 3,

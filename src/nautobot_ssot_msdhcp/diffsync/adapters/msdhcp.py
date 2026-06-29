@@ -19,6 +19,7 @@ from nautobot_dhcp_models.ssot.base import (
     DhcpReservation,
     DhcpScope,
     DhcpServer,
+    DhcpSharedNetwork,
 )
 
 from nautobot_ssot_msdhcp.utils.dhcp import (
@@ -41,12 +42,36 @@ def _hostname(name: str) -> str:
     return (name or "").strip().lower().split(".")[0]
 
 
+def _ddns_from_ms(dynamic_updates, update_older_clients) -> dict:
+    """Map MS scope DNS settings to the vendor-neutral ddns_* fields.
+
+    MS ``DynamicUpdates``: Always = server always updates (overrides client),
+    OnClientRequest = updates only when the client asks, Never = no updates.
+    ``UpdateDnsRRForOlderClients`` = update even for clients that don't request it,
+    which is the same intent as Kea's ddns-override-no-update.
+    """
+    out: dict = {}
+    du = (dynamic_updates or "").lower()
+    if du == "always":
+        out["ddns_send_updates"] = True
+        out["ddns_override_client_update"] = True
+    elif du == "onclientrequest":
+        out["ddns_send_updates"] = True
+        out["ddns_override_client_update"] = False
+    elif du == "never":
+        out["ddns_send_updates"] = False
+    if update_older_clients is not None:
+        out["ddns_override_no_update"] = bool(update_older_clients)
+    return out
+
+
 class MSDHCPAdapter(Adapter):
     """Load a parsed MS DHCP export dict into the DiffSync store."""
 
     dhcpserver = DhcpServer
     dhcpredundancygroup = DhcpRedundancyGroup
     dhcpredundancygroupmember = DhcpRedundancyGroupMember
+    dhcpsharednetwork = DhcpSharedNetwork
     dhcpscope = DhcpScope
     dhcppool = DhcpPool
     dhcpexclusion = DhcpExclusion
@@ -58,6 +83,7 @@ class MSDHCPAdapter(Adapter):
         "dhcpserver",
         "dhcpredundancygroup",
         "dhcpredundancygroupmember",
+        "dhcpsharednetwork",
         "dhcpscope",
         "dhcppool",
         "dhcpexclusion",
@@ -92,6 +118,18 @@ class MSDHCPAdapter(Adapter):
         # Failover relationships -> redundancy group + THIS server's own membership.
         for failover in self.export.get("failover", []):
             self._load_failover(server_name, failover)
+
+        # Superscopes -> shared networks; build a scope_id -> superscope-name map so
+        # each member scope can link to its shared network (MS superscopes carry no
+        # operational fields, only the grouping).
+        self._superscope_of: dict[str, str] = {}
+        for ss in self.export.get("superscopes", []):
+            ss_name = ss.get("name")
+            if not ss_name:
+                continue
+            self.add(self.dhcpsharednetwork(server_name=server_name, name=ss_name))
+            for sid in ss.get("scope_ids", []):
+                self._superscope_of[sid] = ss_name
 
         for scope in self.export.get("scopes", []):
             self._load_scope(server_name, scope)
@@ -142,10 +180,12 @@ class MSDHCPAdapter(Adapter):
             self.dhcpscope(
                 server_name=server_name,
                 prefix=prefix,
+                shared_network=self._superscope_of.get(scope["scope_id"], ""),
                 name=scope.get("name", ""),
                 state=SCOPE_STATE_MAP.get((scope.get("state") or "").lower(), "enabled"),
                 default_lease_time=scope.get("lease_duration_seconds") or 86400,
                 description=scope.get("description", ""),
+                **_ddns_from_ms(scope.get("dynamic_updates"), scope.get("update_older_clients")),
             )
         )
         if scope.get("start_range") and scope.get("end_range"):

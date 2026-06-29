@@ -11,7 +11,7 @@ against) a Windows DHCP server, then upload the file to the **Microsoft DHCP →
 
 ```jsonc
 {
-  "export_version": "2",
+  "export_version": "3",
   "exported_at": "2026-06-27T12:00:00Z",
   "server": {
     "name": "ms-dhcp01.corp.example.com",   // -> DHCPServer.name (natural key)
@@ -33,6 +33,12 @@ against) a Windows DHCP server, then upload the file to the **Microsoft DHCP →
       "scope_ids": ["10.0.10.0"]               // scopes protected by this relationship
     }
   ],
+  "superscopes": [                             // Get-DhcpServerv4Superscope -> DHCPSharedNetwork
+    {
+      "name": "campus-a",                      // -> DHCPSharedNetwork.name; member scopes link to it
+      "scope_ids": ["10.0.10.0", "10.0.20.0"]
+    }
+  ],
   "scopes": [
     {
       "scope_id": "10.0.10.0",                 // network address
@@ -43,6 +49,8 @@ against) a Windows DHCP server, then upload the file to the **Microsoft DHCP →
       "end_range": "10.0.10.250",              // -> DHCPPool.end_address
       "state": "Active",                       // Active|Inactive -> DHCPScope.state
       "lease_duration_seconds": 691200,        // -> DHCPScope.default_lease_time
+      "dynamic_updates": "Always",             // Always|OnClientRequest|Never -> ddns_send_updates (+override_client_update)
+      "update_older_clients": true,            // -> ddns_override_no_update
       "options": [ /* option objects, scope level */ ],
       "exclusions": [
         { "start_range": "10.0.10.10", "end_range": "10.0.10.19" }   // -> DHCPExclusion
