@@ -171,5 +171,12 @@ $export = [PSCustomObject]@{
     scopes         = $scopes
 }
 
-$export | ConvertTo-Json -Depth 8 | Out-File -FilePath $OutFile -Encoding utf8
-Write-Host "Exported $($scopes.Count) scope(s) to $OutFile"
+# Write UTF-8 WITHOUT a BOM. Windows PowerShell 5.1's `Out-File -Encoding utf8`
+# prepends a byte-order mark that makes a strict JSON parser choke; .NET's
+# WriteAllText emits clean UTF-8 on every PowerShell version. (The Nautobot side
+# also strips a BOM defensively, so older exports still import.)
+$json = $export | ConvertTo-Json -Depth 8
+# Resolve a relative path against PowerShell's location (not .NET's working dir).
+$outPath = if ([System.IO.Path]::IsPathRooted($OutFile)) { $OutFile } else { Join-Path (Get-Location).Path $OutFile }
+[System.IO.File]::WriteAllText($outPath, $json, (New-Object System.Text.UTF8Encoding($false)))
+Write-Host "Exported $($scopes.Count) scope(s) to $outPath"

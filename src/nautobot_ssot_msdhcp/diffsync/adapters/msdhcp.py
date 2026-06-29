@@ -29,8 +29,8 @@ from nautobot_ssot_msdhcp.utils.dhcp import (
     join_option_value,
     lease_state_from_ms,
     ms_type_to_datatype,
-    normalize_mac,
     prefix_from_scope,
+    split_identifier,
 )
 
 # Microsoft failover mode -> vendor-neutral DHCPRedundancyMode (no passive-backup in MS).
@@ -215,12 +215,18 @@ class MSDHCPAdapter(Adapter):
 
     def _load_reservation(self, server_name: str, prefix: str, res: dict) -> None:
         ip = res["ip_address"]
+        # A real MAC goes in mac_address; an extended client-identifier (RFC 4361 /
+        # DUID-style, or a Cisco ASCII client-id) would overflow it, so it routes to
+        # the wider client_id column with identifier_type=client-id.
+        mac, other = split_identifier(res.get("client_id", ""))
         self.add(
             self.dhcpreservation(
                 server_name=server_name,
                 prefix=prefix,
                 ip_address=ip,
-                mac_address=normalize_mac(res.get("client_id", "")),
+                identifier_type="client-id" if other else "hw-address",
+                mac_address=mac,
+                client_id=other,
                 hostname=res.get("name", ""),
                 reservation_type=RESERVATION_TYPE_MAP.get((res.get("type") or "").lower(), "dhcp"),
                 description=res.get("description", ""),
@@ -230,12 +236,16 @@ class MSDHCPAdapter(Adapter):
             self._add_option(server_name, prefix, ip, opt)
 
     def _load_lease(self, server_name: str, prefix: str, lease: dict) -> None:
+        # As for reservations: real MAC -> mac_address, else the extended identifier
+        # goes in duid (the lease's wide opaque-identifier slot) rather than overflow.
+        mac, other = split_identifier(lease.get("client_id", ""))
         self.add(
             self.dhcplease(
                 server_name=server_name,
                 prefix=prefix,
                 ip_address=lease["ip_address"],
-                mac_address=normalize_mac(lease.get("client_id", "")),
+                mac_address=mac,
+                duid=other,
                 hostname=lease.get("hostname", ""),
                 lease_state=lease_state_from_ms(lease.get("address_state", "")),
                 expires=canonical_dt(lease.get("lease_expiry")),

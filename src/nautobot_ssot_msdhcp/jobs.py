@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import json
-
 from diffsync.enum import DiffSyncFlags
 from nautobot.apps.jobs import BooleanVar, FileVar, register_jobs
 from nautobot_dhcp_models.ssot.adapter import NautobotAdapter
 from nautobot_ssot.jobs.base import DataSource
 
 from nautobot_ssot_msdhcp.diffsync.adapters.msdhcp import MSDHCPAdapter
+from nautobot_ssot_msdhcp.utils.dhcp import parse_export
 
 name = "Microsoft DHCP SSoT"  # noqa: F841 -- grouping label in the Jobs UI
 
@@ -54,7 +53,7 @@ class MSDHCPDataSource(DataSource):
         """Parse the upload up-front, then run the standard SSoT sync."""
         self.export_file = kwargs["export_file"]
         self.delete_records_missing_from_source = kwargs["delete_records_missing_from_source"]
-        self.export = json.loads(self.export_file.read().decode("utf-8"))
+        self.export = parse_export(self.export_file.read())
         self.server_name = self.export.get("server", {}).get("name")
         if not self.server_name:
             raise ValueError("Export is missing server.name; check the PowerShell export output.")
