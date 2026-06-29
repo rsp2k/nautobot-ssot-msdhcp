@@ -11,7 +11,7 @@ against) a Windows DHCP server, then upload the file to the **Microsoft DHCP →
 
 ```jsonc
 {
-  "export_version": "1",
+  "export_version": "2",
   "exported_at": "2026-06-27T12:00:00Z",
   "server": {
     "name": "ms-dhcp01.corp.example.com",   // -> DHCPServer.name (natural key)
@@ -20,6 +20,18 @@ against) a Windows DHCP server, then upload the file to the **Microsoft DHCP →
   },
   "server_options": [                          // options applied at the server level
     { "option_id": 6, "name": "DNS Servers", "type": "IPv4Address", "value": ["10.0.0.10", "10.0.0.11"] }
+  ],
+  "failover": [                                // Get-DhcpServerv4Failover -> DHCPRedundancyGroup + member
+    {
+      "name": "ms-dhcp01-failover",            // -> DHCPRedundancyGroup.name (natural key)
+      "mode": "LoadBalance",                   // LoadBalance|HotStandby -> load-balance|hot-standby
+      "primary_server": "ms-dhcp01.corp.example.com",    // this server's role is derived from these
+      "secondary_server": "ms-dhcp02.corp.example.com",
+      "mclt": 3600,                            // -> mclt (seconds)
+      "load_balance_percent": 50,              // -> load_balance_percent
+      "state_switch_interval": null,           // -> state_switch_interval (hot-standby, seconds)
+      "scope_ids": ["10.0.10.0"]               // scopes protected by this relationship
+    }
   ],
   "scopes": [
     {

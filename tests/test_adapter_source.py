@@ -27,6 +27,47 @@ def test_server_loaded(adapter):
     assert server.ad_authorized is True
 
 
+def test_failover_projected_to_redundancy(adapter):
+    """An MS failover relationship projects to a redundancy group + this server's member."""
+    g = adapter.get("dhcpredundancygroup", "ms-dhcp01-failover")
+    assert g.mode == "load-balance"  # MS "LoadBalance" mapped to the neutral mode
+    assert g.mclt == 3600
+    assert g.load_balance_percent == 50
+
+    # This export is for ms-dhcp01, the relationship's primary -> one member, role primary.
+    members = adapter.get_all("dhcpredundancygroupmember")
+    assert len(members) == 1
+    m = members[0]
+    assert m.server_name == "ms-dhcp01.corp.example.com"
+    assert m.role == "primary"
+
+
+def test_secondary_server_gets_secondary_role():
+    """The same relationship synced from the secondary server yields role=secondary."""
+    export = {
+        "server": {"name": "ms-dhcp02.corp.example.com", "ad_authorized": False},
+        "failover": [
+            {
+                "name": "ms-dhcp01-failover",
+                "mode": "HotStandby",
+                "primary_server": "ms-dhcp01.corp.example.com",
+                "secondary_server": "ms-dhcp02.corp.example.com",
+                "mclt": 3600,
+                "state_switch_interval": 60,
+            }
+        ],
+        "scopes": [],
+    }
+    a = MSDHCPAdapter(export=export)
+    a.load()
+    g = a.get("dhcpredundancygroup", "ms-dhcp01-failover")
+    assert g.mode == "hot-standby"
+    assert g.state_switch_interval == 60
+    m = a.get_all("dhcpredundancygroupmember")[0]
+    assert m.server_name == "ms-dhcp02.corp.example.com"
+    assert m.role == "secondary"
+
+
 def test_scopes_loaded_with_cidr_and_state(adapter):
     scopes = {s.prefix: s for s in adapter.get_all("dhcpscope")}
     assert set(scopes) == {"10.0.10.0/24", "10.0.20.0/24"}

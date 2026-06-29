@@ -14,6 +14,8 @@ from nautobot_dhcp_models.ssot.base import (
     DhcpLease,
     DhcpOption,
     DhcpPool,
+    DhcpRedundancyGroup,
+    DhcpRedundancyGroupMember,
     DhcpReservation,
     DhcpScope,
     DhcpServer,
@@ -30,11 +32,21 @@ from nautobot_ssot_msdhcp.utils.dhcp import (
     prefix_from_scope,
 )
 
+# Microsoft failover mode -> vendor-neutral DHCPRedundancyMode (no passive-backup in MS).
+_MS_FAILOVER_MODE = {"loadbalance": "load-balance", "hotstandby": "hot-standby"}
+
+
+def _hostname(name: str) -> str:
+    """Lowercase short hostname for tolerant FQDN-vs-short server-name matching."""
+    return (name or "").strip().lower().split(".")[0]
+
 
 class MSDHCPAdapter(Adapter):
     """Load a parsed MS DHCP export dict into the DiffSync store."""
 
     dhcpserver = DhcpServer
+    dhcpredundancygroup = DhcpRedundancyGroup
+    dhcpredundancygroupmember = DhcpRedundancyGroupMember
     dhcpscope = DhcpScope
     dhcppool = DhcpPool
     dhcpexclusion = DhcpExclusion
@@ -44,6 +56,8 @@ class MSDHCPAdapter(Adapter):
 
     top_level = (
         "dhcpserver",
+        "dhcpredundancygroup",
+        "dhcpredundancygroupmember",
         "dhcpscope",
         "dhcppool",
         "dhcpexclusion",
@@ -75,8 +89,52 @@ class MSDHCPAdapter(Adapter):
         for opt in self.export.get("server_options", []):
             self._add_option(server_name, "", "", opt)
 
+        # Failover relationships -> redundancy group + THIS server's own membership.
+        for failover in self.export.get("failover", []):
+            self._load_failover(server_name, failover)
+
         for scope in self.export.get("scopes", []):
             self._load_scope(server_name, scope)
+
+    def _load_failover(self, server_name: str, failover: dict) -> None:
+        """Project an MS failover relationship into a redundancy group + this server's member.
+
+        Like the Kea HA projection, this emits only THIS server's membership; the
+        partner contributes its own row when its export is synced. The relationship
+        name is shared by both partners, so both syncs upsert the same group. Role is
+        derived from whether this server is the relationship's primary or secondary.
+        """
+        name = failover.get("name")
+        if not name:
+            return
+        self.add(
+            self.dhcpredundancygroup(
+                name=name,
+                mode=_MS_FAILOVER_MODE.get((failover.get("mode") or "").lower(), "hot-standby"),
+                mclt=failover.get("mclt"),
+                load_balance_percent=failover.get("load_balance_percent"),
+                state_switch_interval=failover.get("state_switch_interval"),
+                # max_response_delay / max_unacked_clients / heartbeat_delay are Kea HA
+                # concepts with no MS analog; they stay unset.
+                enabled=True,
+            )
+        )
+        this = _hostname(server_name)
+        if this == _hostname(failover.get("primary_server")):
+            role = "primary"
+        elif this == _hostname(failover.get("secondary_server")):
+            role = "secondary"
+        else:
+            # This server matches neither named partner -- skip the membership rather
+            # than guess a role (the group still records the relationship).
+            return
+        self.add(
+            self.dhcpredundancygroupmember(
+                group_name=name,
+                server_name=server_name,
+                role=role,
+            )
+        )
 
     def _load_scope(self, server_name: str, scope: dict) -> None:
         prefix = prefix_from_scope(scope["scope_id"], scope["subnet_mask"])

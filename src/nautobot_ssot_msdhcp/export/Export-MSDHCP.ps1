@@ -51,6 +51,27 @@ try {
         ForEach-Object { Convert-OptionValue $_ })
 } catch {}
 
+# Failover relationships this server participates in (maps to DHCPRedundancyGroup).
+$failover = @()
+try {
+    foreach ($f in (Get-DhcpServerv4Failover -ComputerName $ComputerName -ErrorAction Stop)) {
+        $mclt = $null
+        if ($f.MaxClientLeadTime) { $mclt = [int]$f.MaxClientLeadTime.TotalSeconds }
+        $ssi = $null
+        if ($f.StateSwitchInterval) { $ssi = [int]$f.StateSwitchInterval.TotalSeconds }
+        $failover += [PSCustomObject]@{
+            name                  = [string]$f.Name
+            mode                  = [string]$f.Mode
+            primary_server        = [string]$f.PrimaryServerName
+            secondary_server      = [string]$f.SecondaryServerName
+            mclt                  = $mclt
+            load_balance_percent  = $f.LoadBalancePercent
+            state_switch_interval = $ssi
+            scope_ids             = @($f.ScopeId | ForEach-Object { $_.IPAddressToString })
+        }
+    }
+} catch {}
+
 $scopes = @()
 foreach ($scope in (Get-DhcpServerv4Scope -ComputerName $ComputerName)) {
     $sid = $scope.ScopeId.IPAddressToString
@@ -110,7 +131,7 @@ foreach ($scope in (Get-DhcpServerv4Scope -ComputerName $ComputerName)) {
 }
 
 $export = [PSCustomObject]@{
-    export_version = "1"
+    export_version = "2"
     exported_at    = (Get-Date).ToUniversalTime().ToString("o")
     server         = [PSCustomObject]@{
         name          = $serverName
@@ -118,6 +139,7 @@ $export = [PSCustomObject]@{
         ad_authorized = $authorized
     }
     server_options = $serverOptions
+    failover       = $failover
     scopes         = $scopes
 }
 

@@ -1,5 +1,5 @@
 {
-  "export_version": "1",
+  "export_version": "2",
   "exported_at": "2026-06-27T12:00:00Z",
   "server": {
     "name": "ms-dhcp01.corp.example.com",
@@ -7,8 +7,37 @@
     "ad_authorized": true
   },
   "server_options": [
-    { "option_id": 6, "name": "DNS Servers", "type": "IPv4Address", "value": ["10.0.0.10", "10.0.0.11"] },
-    { "option_id": 15, "name": "DNS Domain Name", "type": "String", "value": ["corp.example.com"] }
+    {
+      "option_id": 6,
+      "name": "DNS Servers",
+      "type": "IPv4Address",
+      "value": [
+        "10.0.0.10",
+        "10.0.0.11"
+      ]
+    },
+    {
+      "option_id": 15,
+      "name": "DNS Domain Name",
+      "type": "String",
+      "value": [
+        "corp.example.com"
+      ]
+    }
+  ],
+  "failover": [
+    {
+      "name": "ms-dhcp01-failover",
+      "mode": "LoadBalance",
+      "primary_server": "ms-dhcp01.corp.example.com",
+      "secondary_server": "ms-dhcp02.corp.example.com",
+      "mclt": 3600,
+      "load_balance_percent": 50,
+      "state_switch_interval": null,
+      "scope_ids": [
+        "10.0.10.0"
+      ]
+    }
   ],
   "scopes": [
     {
@@ -21,10 +50,20 @@
       "state": "Active",
       "lease_duration_seconds": 691200,
       "options": [
-        { "option_id": 3, "name": "Router", "type": "IPv4Address", "value": ["10.0.10.1"] }
+        {
+          "option_id": 3,
+          "name": "Router",
+          "type": "IPv4Address",
+          "value": [
+            "10.0.10.1"
+          ]
+        }
       ],
       "exclusions": [
-        { "start_range": "10.0.10.10", "end_range": "10.0.10.19" }
+        {
+          "start_range": "10.0.10.10",
+          "end_range": "10.0.10.19"
+        }
       ],
       "reservations": [
         {
@@ -34,7 +73,14 @@
           "description": "Front desk printer",
           "type": "Both",
           "options": [
-            { "option_id": 3, "name": "Router", "type": "IPv4Address", "value": ["10.0.10.1"] }
+            {
+              "option_id": 3,
+              "name": "Router",
+              "type": "IPv4Address",
+              "value": [
+                "10.0.10.1"
+              ]
+            }
           ]
         }
       ],
@@ -65,7 +111,14 @@
       "state": "Active",
       "lease_duration_seconds": 86400,
       "options": [
-        { "option_id": 3, "name": "Router", "type": "IPv4Address", "value": ["10.0.20.1"] }
+        {
+          "option_id": 3,
+          "name": "Router",
+          "type": "IPv4Address",
+          "value": [
+            "10.0.20.1"
+          ]
+        }
       ],
       "exclusions": [],
       "reservations": [],
