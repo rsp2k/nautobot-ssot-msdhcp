@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}Import Microsoft DHCP{% endblock %}
+
+{% block content %}
+<div class="msdhcp-import">
+
+  <div class="mi-hero">
+    <div class="mi-hero-icon"><i class="mdi mdi-microsoft-windows"></i></div>
+    <div>
+      <h1 class="mi-title">Import Microsoft DHCP</h1>
+      <p class="mi-subtitle">
+        Bring a Microsoft (Active Directory) DHCP server's scopes, reservations, options, and
+        leases into Nautobot. Run the export on Windows, then upload it here &mdash; the import
+        runs as the <strong>Microsoft DHCP&nbsp;&rarr;&nbsp;Nautobot</strong> SSoT job, with a
+        full log and a reviewable diff.
+      </p>
+    </div>
+  </div>
+
+  <div class="mi-steps">
+
+    <!-- Step 1: download -->
+    <section class="mi-card">
+      <header class="mi-card-head">
+        <span class="mi-step">1</span>
+        <span class="mi-card-title"><i class="mdi mdi-script-text-outline"></i> Download the script</span>
+      </header>
+      <div class="mi-card-body">
+        <p>
+          <code>Export-MSDHCP.ps1</code> uses the built-in <code>DhcpServer</code> PowerShell
+          module (present on a DHCP server, or via RSAT) to dump the config to JSON.
+          It is <strong>read-only</strong> &mdash; it changes nothing on the server.
+        </p>
+        <a href="{{ download_url }}" class="btn btn-primary mi-btn-block">
+          <i class="mdi mdi-download"></i> Download {{ script_name }}
+        </a>
+      </div>
+    </section>
+
+    <!-- Step 2: run -->
+    <section class="mi-card">
+      <header class="mi-card-head">
+        <span class="mi-step">2</span>
+        <span class="mi-card-title"><i class="mdi mdi-console"></i> Run it on the server</span>
+      </header>
+      <div class="mi-card-body">
+        <p>In an elevated PowerShell prompt, as a user with DHCP read access:</p>
+        <div class="mi-code">
+          <button type="button" class="mi-copy" data-copy=".\Export-MSDHCP.ps1 -ComputerName dhcp01 -OutFile C:\temp\dhcp01.json" title="Copy">
+            <i class="mdi mdi-content-copy"></i>
+          </button>
+          <pre><code>.\Export-MSDHCP.ps1 -ComputerName dhcp01 -OutFile C:\temp\dhcp01.json</code></pre>
+        </div>
+        <dl class="mi-flags">
+          <dt><code>-ComputerName</code></dt><dd>server to query (defaults to the local machine)</dd>
+          <dt><code>-OutFile</code></dt><dd>where to write the JSON</dd>
+          <dt><code>-IncludeLeases&nbsp;$false</code></dt><dd>skip dynamic leases if they're large</dd>
+        </dl>
+        <p class="mi-note">
+          <i class="mdi mdi-information-outline"></i>
+          Export each server separately; for a failover pair, run it on both partners.
+        </p>
+      </div>
+    </section>
+
+    <!-- Step 3: upload -->
+    <section class="mi-card mi-card-action">
+      <header class="mi-card-head">
+        <span class="mi-step">3</span>
+        <span class="mi-card-title"><i class="mdi mdi-cloud-upload-outline"></i> Upload &amp; import</span>
+      </header>
+      <div class="mi-card-body">
+        {% if can_run %}
+        <form action="" method="post" enctype="multipart/form-data" id="mi-form">
+          {% csrf_token %}
+
+          <label class="mi-drop" for="export_file" id="mi-drop">
+            <i class="mdi mdi-file-upload-outline mi-drop-icon"></i>
+            <span class="mi-drop-text" id="mi-drop-text">Choose the JSON file from {{ script_name }}</span>
+            <span class="mi-drop-hint">or drag it here</span>
+            <input type="file" name="export_file" id="export_file"
+                   accept=".json,application/json" required hidden>
+          </label>
+
+          <label class="mi-opt">
+            <input type="checkbox" name="dryrun">
+            <span><strong>Dry run</strong> &mdash; preview the diff, change nothing</span>
+          </label>
+          <label class="mi-opt">
+            <input type="checkbox" name="delete_records_missing_from_source">
+            <span><strong>Prune</strong> &mdash; delete Nautobot records absent from this export
+              <em>(default: additive only)</em></span>
+          </label>
+
+          <button type="submit" class="btn btn-success mi-btn-block mi-submit" disabled id="mi-submit">
+            <i class="mdi mdi-database-import-outline"></i> Upload &amp; Import
+          </button>
+          <p class="mi-note mi-note-center">
+            You'll land on the job result to watch the sync and review what changed.
+          </p>
+        </form>
+        {% else %}
+        <div class="mi-denied">
+          <i class="mdi mdi-lock-outline"></i>
+          <p>You need the <strong>run&nbsp;job</strong> permission to import.
+          Ask an administrator, or run the <strong>Microsoft DHCP&nbsp;&rarr;&nbsp;Nautobot</strong>
+          job directly.</p>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<style>
+.msdhcp-import { max-width: 1180px; margin: 0 auto; }
+
+.mi-hero { display: flex; align-items: center; gap: 18px; margin: 8px 0 26px; }
+.mi-hero-icon {
+  flex: 0 0 auto; width: 56px; height: 56px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #1b6ec2, #16a4a4); color: #fff; font-size: 30px;
+  box-shadow: 0 4px 14px rgba(22,164,164,.30);
+}
+.mi-title { margin: 0 0 4px; font-weight: 600; }
+.mi-subtitle { margin: 0; opacity: .82; max-width: 70ch; line-height: 1.5; }
+
+.mi-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width: 991px) { .mi-steps { grid-template-columns: 1fr; } }
+
+.mi-card {
+  border: 1px solid rgba(128,128,128,.22); border-radius: 12px; overflow: hidden;
+  background: rgba(127,127,127,.04); display: flex; flex-direction: column;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.mi-card:hover { border-color: rgba(27,110,194,.5); box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+.mi-card-action { border-color: rgba(40,167,69,.45); background: rgba(40,167,69,.05); }
+.mi-card-action:hover { border-color: rgba(40,167,69,.75); }
+
+.mi-card-head {
+  display: flex; align-items: center; gap: 11px; padding: 14px 16px;
+  border-bottom: 1px solid rgba(128,128,128,.18);
+}
+.mi-step {
+  flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;
+  background: #1b6ec2; color: #fff;
+}
+.mi-card-action .mi-step { background: #28a745; }
+.mi-card-title { font-weight: 600; font-size: 15px; }
+.mi-card-title .mdi { opacity: .65; margin-right: 2px; }
+.mi-card-body { padding: 16px; flex: 1 1 auto; }
+.mi-card-body p { line-height: 1.5; }
+
+.mi-btn-block { display: block; width: 100%; text-align: center; }
+
+.mi-code { position: relative; margin: 4px 0 14px; }
+.mi-code pre {
+  margin: 0; padding: 12px 42px 12px 14px; border-radius: 8px;
+  background: #11151c; border: 1px solid rgba(128,128,128,.25);
+  color: #d6e2f0; font-size: 12.5px;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.mi-copy {
+  position: absolute; top: 7px; right: 7px; border: none; border-radius: 6px;
+  width: 28px; height: 28px; cursor: pointer; color: #9fb3c8;
+  background: rgba(255,255,255,.06); transition: background .12s, color .12s;
+}
+.mi-copy:hover { background: rgba(255,255,255,.14); color: #fff; }
+.mi-copy.copied { color: #28a745; }
+
+.mi-flags { margin: 0 0 12px; }
+.mi-flags dt { float: left; clear: left; margin-right: 8px; font-weight: 400; }
+.mi-flags dd { margin: 0 0 4px 0; padding-left: 0; opacity: .8; overflow: hidden; }
+.mi-flags dt code { font-size: 12px; }
+
+.mi-note { font-size: 12.5px; opacity: .72; margin: 0; line-height: 1.45; }
+.mi-note .mdi { opacity: .8; }
+.mi-note-center { text-align: center; margin-top: 12px; }
+
+.mi-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; width: 100%; padding: 26px 16px; margin-bottom: 16px; cursor: pointer;
+  border: 2px dashed rgba(40,167,69,.45); border-radius: 10px;
+  background: rgba(40,167,69,.04); text-align: center;
+  transition: border-color .15s, background .15s;
+}
+.mi-drop:hover, .mi-drop.dragover { border-color: #28a745; background: rgba(40,167,69,.12); }
+.mi-drop.has-file { border-style: solid; }
+.mi-drop-icon { font-size: 34px; color: #28a745; }
+.mi-drop-text { font-weight: 600; }
+.mi-drop-hint { font-size: 12px; opacity: .6; }
+
+.mi-opt { display: flex; align-items: flex-start; gap: 9px; font-weight: 400; margin-bottom: 10px; }
+.mi-opt input { margin-top: 3px; }
+.mi-opt em { opacity: .65; font-style: normal; font-size: 12px; }
+
+.mi-submit { margin-top: 6px; }
+.mi-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+.mi-denied { display: flex; gap: 12px; align-items: flex-start; padding: 6px 2px; }
+.mi-denied .mdi { font-size: 26px; color: #d6a417; }
+.mi-denied p { margin: 0; opacity: .85; line-height: 1.5; }
+</style>
+
+<script type="text/javascript">
+(function () {
+  // Copy-to-clipboard on the command block.
+  document.querySelectorAll(".mi-copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(btn.getAttribute("data-copy")).then(function () {
+        btn.classList.add("copied");
+        var icon = btn.querySelector(".mdi");
+        icon.classList.remove("mdi-content-copy"); icon.classList.add("mdi-check");
+        setTimeout(function () {
+          btn.classList.remove("copied");
+          icon.classList.remove("mdi-check"); icon.classList.add("mdi-content-copy");
+        }, 1500);
+      });
+    });
+  });
+
+  // Dropzone: reflect the chosen file, enable submit, support drag/drop.
+  var input = document.getElementById("export_file");
+  if (!input) return;
+  var drop = document.getElementById("mi-drop");
+  var label = document.getElementById("mi-drop-text");
+  var submit = document.getElementById("mi-submit");
+
+  function reflect() {
+    if (input.files && input.files.length) {
+      label.textContent = input.files[0].name;
+      drop.classList.add("has-file");
+      submit.disabled = false;
+    } else {
+      drop.classList.remove("has-file");
+      submit.disabled = true;
+    }
+  }
+  input.addEventListener("change", reflect);
+
+  ["dragenter", "dragover"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("dragover"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("dragover"); });
+  });
+  drop.addEventListener("drop", function (e) {
+    if (e.dataTransfer.files && e.dataTransfer.files.length) {
+      input.files = e.dataTransfer.files;
+      reflect();
+    }
+  });
+})();
+</script>
+{% endblock %}
