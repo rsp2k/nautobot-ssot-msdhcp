@@ -42,6 +42,17 @@ def test_failover_projected_to_redundancy(adapter):
     assert m.role == "primary"
 
 
+def test_failover_tags_only_protected_scopes(adapter):
+    """MS failover is per-scope: only scopes in the relationship's scope_ids get tagged.
+
+    The fixture's failover protects 10.0.10.0 but not 10.0.20.0, so the group's
+    "Protected Scopes" view lists the former and not the latter.
+    """
+    scopes = {s.prefix: s for s in adapter.get_all("dhcpscope")}
+    assert scopes["10.0.10.0/24"].redundancy_group == "ms-dhcp01-failover"
+    assert scopes["10.0.20.0/24"].redundancy_group == ""
+
+
 def test_secondary_server_gets_secondary_role():
     """The same relationship synced from the secondary server yields role=secondary."""
     export = {

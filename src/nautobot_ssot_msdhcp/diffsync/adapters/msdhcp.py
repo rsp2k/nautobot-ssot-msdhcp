@@ -116,6 +116,9 @@ class MSDHCPAdapter(Adapter):
             self._add_option(server_name, "", "", opt)
 
         # Failover relationships -> redundancy group + THIS server's own membership.
+        # MS failover is per-scope, so build a scope_id -> relationship-name map while
+        # loading, then tag each protected scope with its redundancy group below.
+        self._failover_of: dict[str, str] = {}
         for failover in self.export.get("failover", []):
             self._load_failover(server_name, failover)
 
@@ -145,6 +148,8 @@ class MSDHCPAdapter(Adapter):
         name = failover.get("name")
         if not name:
             return
+        for sid in failover.get("scope_ids", []):
+            self._failover_of[sid] = name
         self.add(
             self.dhcpredundancygroup(
                 name=name,
@@ -181,6 +186,7 @@ class MSDHCPAdapter(Adapter):
                 server_name=server_name,
                 prefix=prefix,
                 shared_network=self._superscope_of.get(scope["scope_id"], ""),
+                redundancy_group=self._failover_of.get(scope["scope_id"], ""),
                 name=scope.get("name", ""),
                 state=SCOPE_STATE_MAP.get((scope.get("state") or "").lower(), "enabled"),
                 default_lease_time=scope.get("lease_duration_seconds") or 86400,
