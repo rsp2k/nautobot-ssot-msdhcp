@@ -10,6 +10,10 @@ USER 0
 COPY development/wheels/*.whl /tmp/wheels/
 RUN pip install --no-cache-dir nautobot-ssot==4.4.0 /tmp/wheels/*.whl
 
+# nautobot.apps.testing imports the integration-test stack (selenium/splinter), so
+# the runtime base image can't run `nautobot-server test` without them. Dev-only.
+RUN pip install --no-cache-dir selenium splinter
+
 COPY pyproject.toml README.md /opt/plugin/
 COPY src /opt/plugin/src
 # Deps are already satisfied (base image + the two installs above); --no-deps
